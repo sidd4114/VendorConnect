@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxHeight="600dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="28dp"
+        android:background="@color/white">
+
+        <!-- Header with image and basic info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:id="@+id/dialogVendorImage"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@mipmap/ic_launcher"
+                android:scaleType="centerCrop"
+                android:background="@drawable/circle_background"
+                android:layout_marginEnd="16dp"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/dialogVendorName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vendor Name"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_black"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/dialogVendorCategory"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Category"
+                    android:textSize="14sp"
+                    android:textColor="@color/accent_teal"
+                    android:textStyle="bold"
+                    android:background="@drawable/category_chip_background"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/dialogVendorStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="OPEN"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/success_green"
+                    android:background="@drawable/status_open_background"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_star_filled"
+                        android:tint="@color/rating_yellow" />
+
+                    <TextView
+                        android:id="@+id/dialogVendorRating"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="4.5"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary_black"
+                        android:layout_marginStart="4dp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Photos Section -->
+        <TextView
+            android:id="@+id/dialogPhotosTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Photos"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_black"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/dialogPhotosRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Description -->
+        <TextView
+            android:id="@+id/dialogVendorDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vendor Description"
+            android:textSize="16sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="16dp"
+            android:lineSpacingExtra="4dp" />
+
+        <!-- Location Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_location"
+                android:tint="@color/accent_teal" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:id="@+id/dialogVendorLocality"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Locality"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_black" />
+
+                <TextView
+                    android:id="@+id/dialogVendorAddress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Address"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_distance"
+                    android:tint="@color/text_secondary" />
+
+                <TextView
+                    android:id="@+id/dialogVendorDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.5 km"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="4dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Contact Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_phone"
+                android:tint="@color/accent_teal" />
+
+            <TextView
+                android:id="@+id/dialogVendorPhone"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Phone Number"
+                android:textSize="16sp"
+                android:textColor="@color/primary_black"
+                android:layout_marginStart="12dp" />
+
+            <TextView
+                android:id="@+id/dialogVendorPriceRange"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="$$"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/accent_teal" />
+
+        </LinearLayout>
+
+        <!-- Specialties -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Specialties"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_black"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/dialogSpecialtiesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/dialogSpecialty1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fresh"
+                android:textSize="12sp"
+                android:textColor="@color/accent_teal"
+                android:background="@drawable/specialty_chip_background"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/dialogSpecialty2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Organic"
+                android:textSize="12sp"
+                android:textColor="@color/accent_teal"
+                android:background="@drawable/specialty_chip_background"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/dialogSpecialty3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fast"
+                android:textSize="12sp"
+                android:textColor="@color/accent_teal"
+                android:background="@drawable/specialty_chip_background"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddPhoto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Add Photo"
+            app:icon="@android:drawable/ic_menu_camera"
+            app:cornerRadius="14dp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCallVendor"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="Call"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:background="@drawable/button_background_black"
+                android:layout_marginEnd="8dp"
+                app:cornerRadius="14dp"
+                android:fontFamily="sans-serif-medium" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDirections"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="Directions"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/accent_teal"
+                android:background="@drawable/button_outline_teal"
+                android:layout_marginStart="8dp"
+                app:cornerRadius="14dp"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

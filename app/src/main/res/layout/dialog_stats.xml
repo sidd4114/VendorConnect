@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="App Statistics"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_black"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Stats Grid -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/dialog_background"
+            android:padding="16dp">
+
+            <!-- Total Vendors -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Total Vendors:"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_black" />
+
+                <TextView
+                    android:id="@+id/totalVendorsText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="25"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/accent_teal" />
+
+            </LinearLayout>
+
+            <!-- Nearby Vendors -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Nearby Vendors:"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_black" />
+
+                <TextView
+                    android:id="@+id/nearbyVendorsText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="8"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/accent_teal" />
+
+            </LinearLayout>
+
+            <!-- Total Orders -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Total Orders:"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_black" />
+
+                <TextView
+                    android:id="@+id/totalOrdersText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="156"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/accent_teal" />
+
+            </LinearLayout>
+
+            <!-- Average Rating -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Average Rating:"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_black" />
+
+                <TextView
+                    android:id="@+id/averageRatingText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="4.2"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/accent_teal" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Quick Actions -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Quick Actions"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_black"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/dialog_background"
+            android:padding="16dp">
+
+            <Button
+                android:id="@+id/btnViewVendors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="View All Vendors"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/button_background"
+                android:textColor="@color/white" />
+
+            <Button
+                android:id="@+id/btnViewOrders"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="View Order History"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/button_background_black"
+                android:textColor="@color/white" />
+
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Settings"
+                android:background="@drawable/button_background"
+                android:textColor="@color/white" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

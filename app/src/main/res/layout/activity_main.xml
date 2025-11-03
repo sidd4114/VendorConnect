@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <!-- Main Content -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Google Map Fragment (background) -->
+        <fragment
+            android:id="@+id/map"
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Modern gradient overlay -->
+        <LinearLayout
+            android:id="@+id/overlayLayout"
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@android:color/white"
+            android:paddingTop="8dp"
+            android:visibility="visible"
+            android:elevation="4dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Hamburger Menu Button -->
+            <ImageButton
+                android:id="@+id/btnHamburger"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_menu"
+                android:contentDescription="Menu"
+                android:clickable="true"
+                android:focusable="true"
+                android:tint="@color/primary_black"
+                android:padding="12dp" />
+
+            <!-- Modern Search Bar -->
+            <EditText
+                android:id="@+id/searchBar"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:hint="Search vendors, cuisine, location..."
+                android:background="@drawable/search_background"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                android:drawableStart="@drawable/ic_search"
+                android:drawablePadding="12dp"
+                android:elevation="2dp"
+                android:textColor="@color/primary_black"
+                android:textColorHint="@color/text_tertiary"
+                android:textSize="15sp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:fontFamily="sans-serif-medium"/>
+
+            <!-- Locality Search Bar (Places Autocomplete) -->
+            <FrameLayout
+                android:id="@+id/placesAutocompleteContainer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/search_background"
+                android:elevation="2dp">
+
+                <fragment
+                    android:id="@+id/autocomplete_fragment"
+                    android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- Radius Search Removed -->
+
+            <!-- Modern Filter Chips -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="12dp"
+                android:scrollbars="none"
+                android:fadeScrollbars="false">
+
+                <LinearLayout
+                    android:id="@+id/filterChipsContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/chipAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="All"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:background="@drawable/filter_chip_selected"
+                        android:paddingHorizontal="20dp"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:layout_marginEnd="8dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:id="@+id/chipFood"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="Food &amp; Beverage"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:background="@drawable/filter_chip_unselected"
+                        android:paddingHorizontal="20dp"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:layout_marginEnd="8dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif" />
+
+                    <TextView
+                        android:id="@+id/chipCafe"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="Café"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:background="@drawable/filter_chip_unselected"
+                        android:paddingHorizontal="20dp"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:layout_marginEnd="8dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif" />
+
+                    <TextView
+                        android:id="@+id/chipHealth"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="Health"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:background="@drawable/filter_chip_unselected"
+                        android:paddingHorizontal="20dp"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:layout_marginEnd="8dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif" />
+
+                    <TextView
+                        android:id="@+id/chipOpen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="Open Now"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:background="@drawable/filter_chip_unselected"
+                        android:paddingHorizontal="20dp"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
+
+            <!-- Vendor List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/vendorRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="16dp"
+                android:clipToPadding="false"
+                android:scrollbars="none"
+                android:overScrollMode="never" />
+
+            <!-- Chat Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonChat"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Chat with Us"
+                android:layout_marginBottom="16dp"
+                android:layout_gravity="center_horizontal"
+                app:cornerRadius="14dp"
+                app:backgroundTint="@color/accent_teal"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
+        <!-- Floating Buttons -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnMyLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:srcCompat="@drawable/ic_my_location"
+            app:tint="@color/white"
+            app:backgroundTint="@color/primary_black"
+            android:contentDescription="My Location"
+            app:elevation="8dp"/>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnToggleVendors"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:layout_constraintBottom_toTopOf="@+id/btnMyLocation"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:srcCompat="@drawable/ic_list"
+            app:tint="@color/white"
+            android:contentDescription="Toggle Vendor List"
+            app:backgroundTint="@color/accent_teal"
+            app:elevation="8dp"/>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnStats"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:layout_constraintBottom_toTopOf="@+id/btnToggleVendors"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:srcCompat="@drawable/ic_stats"
+            app:tint="@color/white"
+            android:contentDescription="Stats &amp; Dashboard"
+            app:backgroundTint="@color/accent_teal"
+            app:elevation="8dp"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Navigation Drawer -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigationView"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        app:menu="@menu/drawer_menu"
+        android:fitsSystemWindows="true"/>
+</androidx.drawerlayout.widget.DrawerLayout>
