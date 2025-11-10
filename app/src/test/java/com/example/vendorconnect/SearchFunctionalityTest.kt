@@ -4,7 +4,6 @@ import android.location.Location
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.mock
 
 class SearchFunctionalityTest {
 
@@ -15,7 +14,6 @@ class SearchFunctionalityTest {
         // Create test vendors with different properties
         testVendors = listOf(
             Vendor(
-                id = "1",
                 name = "Pizza Place",
                 description = "Best pizza in town",
                 lat = 19.0760,
@@ -32,7 +30,6 @@ class SearchFunctionalityTest {
                 specialties = listOf("Pizza", "Pasta")
             ),
             Vendor(
-                id = "2",
                 name = "Fashion Store",
                 description = "Latest fashion trends",
                 lat = 19.1136,
@@ -42,14 +39,13 @@ class SearchFunctionalityTest {
                 rating = 4.0f,
                 priceRange = "$$$",
                 isOpen = false,
-                distance = 0.0,
+                distance = 0.0f,
                 phoneNumber = "9876543210",
                 address = "456 Fashion St, Juhu",
                 imageUrl = "",
                 specialties = listOf("Clothing", "Accessories")
             ),
             Vendor(
-                id = "3",
                 name = "Tech Repair",
                 description = "Fix all your gadgets",
                 lat = 19.0330,
@@ -59,7 +55,7 @@ class SearchFunctionalityTest {
                 rating = 3.5f,
                 priceRange = "$$",
                 isOpen = true,
-                distance = 0.0,
+                distance = 0.0f,
                 phoneNumber = "5555555555",
                 address = "789 Tech St, Vashi",
                 imageUrl = "",
@@ -115,13 +111,12 @@ class SearchFunctionalityTest {
 
     @Test
     fun testFilterByRadius() {
-        // Create a mock location for the user
-        val userLocation = mock(Location::class.java)
-        userLocation.latitude = 19.0760 // Same as Pizza Place
-        userLocation.longitude = 72.8777
+        // Define user coordinates (same as Pizza Place)
+        val userLat = 19.0760
+        val userLng = 72.8777
         
         // Create a test function to calculate distance
-        fun calculateDistance(vendor: Vendor, userLat: Double, userLng: Double): Double {
+        fun calculateDistance(vendor: Vendor, userLat: Double, userLng: Double): Float {
             val R = 6371 // Earth radius in kilometers
             val dLat = Math.toRadians(vendor.lat - userLat)
             val dLon = Math.toRadians(vendor.lng - userLng)
@@ -129,18 +124,17 @@ class SearchFunctionalityTest {
                     Math.cos(Math.toRadians(userLat)) * Math.cos(Math.toRadians(vendor.lat)) *
                     Math.sin(dLon / 2) * Math.sin(dLon / 2)
             val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-            return R * c
+            return (R * c).toFloat()
         }
         
         // Update distances
         val vendorsWithDistance = testVendors.map { vendor ->
-            vendor.distance = calculateDistance(vendor, userLocation.latitude, userLocation.longitude)
-            vendor
+            vendor.copy(distance = calculateDistance(vendor, userLat, userLng))
         }
         
         // Filter by radius (5km)
         val filteredByRadius = vendorsWithDistance.filter { vendor ->
-            vendor.distance <= 5.0
+            vendor.distance <= 5.0f
         }
         
         // Pizza Place should be within 5km (it's at the same location)

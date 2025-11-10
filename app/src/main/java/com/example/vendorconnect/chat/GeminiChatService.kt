@@ -12,7 +12,7 @@ class GeminiChatService(
     // Removed deprecated Gemini SDK imports and related code
 
     suspend fun send(message: String): String {
-        // TODO: implement new send logic
+
         return ""
     }
 

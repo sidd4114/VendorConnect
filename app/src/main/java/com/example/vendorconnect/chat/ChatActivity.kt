@@ -7,12 +7,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.NestedScrollView
-import com.example.vendorconnect.BuildConfig
+
 import com.example.vendorconnect.R
 import com.google.android.material.button.MaterialButton
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+
+import com.example.vendorconnect.BuildConfig
 
 class ChatActivity : AppCompatActivity() {
 
@@ -73,8 +75,13 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun callGeminiAPI(userMessage: String) {
+        val systemPrompt = "You are VendorConnect's helpful customer assistant. Your role is to provide concise and accurate information about our services, vendors, and features. Please stick to topics related to VendorConnect and assist users with their queries in a friendly and professional manner."
+
         val request = GeminiRequest(
-            contents = listOf(Content(parts = listOf(Part(text = userMessage))))
+            contents = listOf(
+                Content(parts = listOf(Part(text = systemPrompt))),
+                Content(parts = listOf(Part(text = userMessage)))
+            )
         )
 
         val apiKey = BuildConfig.GEMINI_API_KEY

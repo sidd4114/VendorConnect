@@ -1,5 +1,6 @@
 package com.example.vendorconnect
 
+// ... (Your imports remain exactly the same)
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
@@ -49,20 +51,23 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener
+// You may need this import if it's not already there
+import com.google.android.gms.common.api.Status
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
+    // ... (All your properties from line 28 to 110 remain exactly the same)
     private lateinit var mMap: GoogleMap
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: VendorAdapter
     private lateinit var vendorList: List<Vendor>
     private lateinit var searchBar: EditText
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    
+
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
     }
-    
+
     // Filter chips
     private lateinit var chipAll: TextView
     private lateinit var chipFood: TextView
@@ -70,14 +75,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var chipHealth: TextView
     private lateinit var chipOpen: TextView
     private var currentFilter = "All"
-    
+
     // Search components (locality via Places Autocomplete)
-    
+
     // User's current location
     private var userLocation: Location? = null
     // Anchor for distance sorting (selected place or user location)
     private var anchorLocation: Location? = null
-    
+
     // Search filters
     private var currentLocality: String = ""
     private var selectedCategories: MutableSet<String> = mutableSetOf()
@@ -91,16 +96,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnToggleVendors: com.google.android.material.floatingactionbutton.FloatingActionButton
     private lateinit var btnMyLocation: com.google.android.material.floatingactionbutton.FloatingActionButton
     private lateinit var overlayLayout: LinearLayout
+    private lateinit var slideIn: android.view.animation.Animation
+    private lateinit var slideOut: android.view.animation.Animation
     private var isVendorListVisible = true
     private var pendingCameraLatLng: LatLng? = null
-    
+
     // Firebase Auth
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
-    
+
     // Location services
     private var locationCallback: LocationCallback? = null
     private var isRequestingLocationUpdates = false
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,10 +116,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Initialize Firebase Auth and Firestore
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
-        
+
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        
+
+        slideIn = AnimationUtils.loadAnimation(this, R.anim.slide_in_down)
+        slideOut = AnimationUtils.loadAnimation(this, R.anim.slide_out_up)
+
         // Check if user is logged in
         if (auth.currentUser == null) {
             val intent = Intent(this, LoginActivity::class.java)
@@ -119,11 +130,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             finish()
             return
         }
-        
+
         // Check user type BEFORE setting up UI
         checkUserTypeAndRedirect()
     }
-    
+
+    // ... (Your onMapReady, enableMyLocation, requestLocationUpdates, updateLocation, generateVendorsNearLocation, stopLocationUpdates, and applyFilters methods from line 133 to 457 remain exactly the same)
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
@@ -133,7 +145,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Ensure the map starts focused and avoids world view flicker
         mMap.setMinZoomPreference(10f)
         mMap.setMaxZoomPreference(20f)
-        
+
         // Completely prevent Google HQ from showing by setting map options
         try {
             mMap.setMapStyle(
@@ -144,16 +156,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         } catch (e: Exception) {
             Log.e("MainActivity", "Can't find style. Error: ", e)
         }
-        
+
         // Configure map UI settings
         mMap.uiSettings.isMapToolbarEnabled = false
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.uiSettings.isCompassEnabled = true
         mMap.uiSettings.isMyLocationButtonEnabled = false // We use custom FAB
-        
+
         // Immediately move camera to Thane to prevent showing Google HQ
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(mumbaiLocation, 12f))
-        
+
         // If we don't yet have a user location, default to Thane for distance anchor
         if (userLocation == null) {
             val fallback = Location("")
@@ -165,14 +177,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 filterVendors(searchBar.text.toString())
             }
         }
-        
+
         // Add markers for vendors (if vendors are already loaded)
         if (::vendorList.isInitialized && vendorList.isNotEmpty()) {
             for (vendor in vendorList) {
                 val location = LatLng(vendor.lat, vendor.lng)
                 mMap.addMarker(MarkerOptions().position(location).title(vendor.name))
             }
-            
+
             // Show all vendors on the map with appropriate zoom (but don't override user location)
             if (userLocation == null) {
                 val bounds = com.google.android.gms.maps.model.LatLngBounds.Builder()
@@ -182,7 +194,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 200))
             }
         }
-        
+
         // Enable location layer if permission is granted
         enableMyLocation()
 
@@ -192,7 +204,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             pendingCameraLatLng = null
         }
     }
-    
+
     private fun enableMyLocation() {
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -204,12 +216,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             ) == PackageManager.PERMISSION_GRANTED
         ) {
             mMap.isMyLocationEnabled = true
-            
+
             // Check if GPS is enabled
             val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
             val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
             val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-            
+
             if (!isGpsEnabled && !isNetworkEnabled) {
                 // Show dialog to enable location services
                 AlertDialog.Builder(this)
@@ -223,10 +235,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     .show()
                 return
             }
-            
+
             // Request location with proper configuration
             requestLocationUpdates()
-            
+
             // Also try to get last known location immediately as fallback
             fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
                 if (lastLoc != null && userLocation == null) {
@@ -246,7 +258,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             )
         }
     }
-    
+
     private fun requestLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -259,17 +271,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         ) {
             return
         }
-        
+
         // Stop any existing updates
         stopLocationUpdates()
-        
+
         // Create location request
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateIntervalMillis(5000)
             .setMaxUpdateDelayMillis(10000)
             .setWaitForAccurateLocation(false)
             .build()
-        
+
         // Create location callback
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
@@ -280,15 +292,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-        
+
         // Check location settings
         val builder = LocationSettingsRequest.Builder()
             .addLocationRequest(locationRequest)
             .setAlwaysShow(true)
-        
+
         val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
         val task = settingsClient.checkLocationSettings(builder.build())
-        
+
         task.addOnSuccessListener {
             // Location settings are satisfied, request location updates
             isRequestingLocationUpdates = true
@@ -298,7 +310,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 mainLooper
             )
         }
-        
+
         task.addOnFailureListener { exception ->
             if (exception is ResolvableApiException) {
                 // Location settings are not satisfied, show dialog to user
@@ -313,7 +325,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 lastLoc?.let { updateLocation(it) }
             }
         }
-        
+
         // Fallback timeout: if no location received in 15 seconds, use last known location
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (userLocation == null) {
@@ -324,24 +336,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             stopLocationUpdates()
         }, 15000)
     }
-    
+
     private fun updateLocation(location: Location) {
         if (userLocation != null && location.accuracy > userLocation!!.accuracy) {
             // Don't update if new location is less accurate
             return
         }
-        
+
         val currentLatLng = LatLng(location.latitude, location.longitude)
-        
+
         if (this::mMap.isInitialized) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
         } else {
             pendingCameraLatLng = currentLatLng
         }
-        
+
         userLocation = location
         anchorLocation = location
-        
+
         // Generate vendors near new location if not already generated
         if (!::vendorList.isInitialized || vendorList.isEmpty()) {
             vendorList = generateVendorsNearLocation(location)
@@ -357,18 +369,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-        
+
         val query = if (::searchBar.isInitialized) searchBar.text.toString() else ""
         filterVendors(query)
-        
+
         Log.d("MainActivity", "Location updated: ${location.latitude}, ${location.longitude}, accuracy: ${location.accuracy}m")
     }
-    
+
     private fun generateVendorsNearLocation(userLocation: Location?): List<Vendor> {
         // Default location if user location not available
         val baseLat = userLocation?.latitude ?: 19.2183
         val baseLng = userLocation?.longitude ?: 72.9781
-        
+
         // Generate vendors in a 2km radius around user location
         val vendors = mutableListOf<Vendor>()
         val vendorData = listOf(
@@ -383,14 +395,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             VendorData("Burger Junction", "Juicy burgers and crispy fries. Classic fast food favorites!", "Fast Food", 4.1f, "$", true, listOf("Burgers", "Fast", "Popular")),
             VendorData("Health Hub", "Nutritious meals and protein bowls. Fuel your active lifestyle!", "Health & Wellness", 4.9f, "$$$", true, listOf("Healthy", "Protein", "Fitness"))
         )
-        
+
         var phoneCounter = 43210
         vendorData.forEachIndexed { index, data ->
             // Generate random offset within 2km (approximately 0.018 degrees = 2km)
             val randomOffsetLat = (Math.random() * 0.036 - 0.018) // -0.018 to +0.018
             val randomOffsetLng = (Math.random() * 0.036 - 0.018)
             val distanceKm = Math.random() * 2.0 // 0 to 2km
-            
+
             vendors.add(
                 Vendor(
                     name = data.name,
@@ -413,10 +425,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 )
             )
         }
-        
+
         return vendors.sortedBy { it.distance }
     }
-    
+
     private data class VendorData(
         val name: String,
         val description: String,
@@ -426,14 +438,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val isOpen: Boolean,
         val specialties: List<String>
     )
-    
+
     private fun stopLocationUpdates() {
         if (isRequestingLocationUpdates && locationCallback != null) {
             fusedLocationClient.removeLocationUpdates(locationCallback!!)
             isRequestingLocationUpdates = false
         }
     }
-    
+
     private fun applyFilters(filter: String) {
         // Implementation of filter logic
         Log.d("MainActivity", "Applying filter: $filter")
@@ -442,7 +454,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupCustomerUI() {
         setContentView(R.layout.activity_main)
-        
+
         // Initialize DrawerLayout and NavigationView
         drawerLayout = findViewById(R.id.drawerLayout)
         navigationView = findViewById(R.id.navigationView)
@@ -451,14 +463,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         btnToggleVendors = findViewById(R.id.btnToggleVendors)
         btnMyLocation = findViewById(R.id.btnMyLocation)
         overlayLayout = findViewById(R.id.overlayLayout)
-        
+
+        // --- MODIFIED SECTION START ---
+
+        val fragmentManager = supportFragmentManager
+
         // Setup Google Places Autocomplete (embedded fragment in layout)
-        val autocompleteFragment = supportFragmentManager
-            .findFragmentById(R.id.autocomplete_fragment) as AutocompleteSupportFragment
-        autocompleteFragment.setPlaceFields(
+        var autocompleteFragment = fragmentManager
+            .findFragmentById(R.id.autocomplete_fragment) as? AutocompleteSupportFragment
+
+        // If fragment is null (first launch), create it. Otherwise, use restored one.
+        if (autocompleteFragment == null) {
+            autocompleteFragment = AutocompleteSupportFragment.newInstance()
+            fragmentManager.beginTransaction()
+                .add(R.id.autocomplete_fragment, autocompleteFragment)
+                .commit()
+            // We must execute transactions so we can configure the fragment right away
+            fragmentManager.executePendingTransactions()
+        }
+
+        // Now, safely configure the fragment
+        autocompleteFragment?.setPlaceFields(
             listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG)
         )
-        autocompleteFragment.setOnPlaceSelectedListener(object : PlaceSelectionListener {
+        autocompleteFragment?.setOnPlaceSelectedListener(object : PlaceSelectionListener {
             override fun onPlaceSelected(place: Place) {
                 currentLocality = place.name ?: place.address ?: ""
                 place.latLng?.let { latLng ->
@@ -475,10 +503,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
                 applyFilters()
             }
-            override fun onError(status: com.google.android.gms.common.api.Status) {
+            override fun onError(status: Status) {
                 Toast.makeText(this@MainActivity, "Place error: ${status.statusMessage}", Toast.LENGTH_SHORT).show()
             }
         })
+
+        // --- END OF FIRST MODIFIED SECTION ---
+
 
         // Open drawer when hamburger clicked
         btnHamburger.setOnClickListener {
@@ -566,7 +597,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
-        
+
         // Add focus animation to search bar
         searchBar.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -587,21 +618,43 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Setup Filter Chips
         setupFilterChips()
 
+        // --- MODIFIED SECTION START ---
+
         // Setup Google Map
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
-        
+        // We already defined fragmentManager
+        var mapFragment = fragmentManager
+            .findFragmentById(R.id.map) as? SupportMapFragment
+
+        // If fragment is null (first launch), create it. Otherwise, use restored one.
+        if (mapFragment == null) {
+            mapFragment = SupportMapFragment.newInstance()
+            fragmentManager.beginTransaction()
+                .add(R.id.map, mapFragment)
+                .commit()
+            // We must execute transactions so getMapAsync can find the fragment
+            fragmentManager.executePendingTransactions()
+        }
+
+        mapFragment?.getMapAsync(this)
+
+        // --- END OF SECOND MODIFIED SECTION ---
+
         // Check location permission for customers
         checkLocationPermission()
 
-        val buttonChat = findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonChat)
+        val buttonChat = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.buttonChat)
         buttonChat.setOnClickListener {
             val intent = Intent(this, ChatActivity::class.java)
             startActivity(intent)
         }
     }
 
+    // ... (All your other methods from line 636 to the end remain exactly the same)
+    // ... (moveCameraToVendor, setupFilterChips, selectFilterChip, applyFilters, filterVendors, ...)
+    // ... (showVendorDetailsDialog, generateVendorKey, loadContributedPhotosForDialog, toggleVendorList, ...)
+    // ... (setupDialogSpecialties, checkUserTypeAndRedirect, checkLocationPermission, showLocationPermissionDialog, ...)
+    // ... (navigateToVendor, getCurrentLocation, onResume, onPause, onDestroy, showNearbyVendors, ...)
+    // ... (onRequestPermissionsResult, onActivityResult, showStatsDialog)
     private fun moveCameraToVendor(vendor: Vendor) {
         val location = LatLng(vendor.lat, vendor.lng)
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17f))
@@ -616,14 +669,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         chipOpen = findViewById(R.id.chipOpen)
 
         val chips = listOf(chipAll, chipFood, chipCafe, chipHealth, chipOpen)
-        
+
         chips.forEach { chip ->
             chip.setOnClickListener {
                 selectFilterChip(chip, chips)
                 applyFilters()
             }
         }
-        
+
         // Set default filter
         selectFilterChip(chipAll, chips)
     }
@@ -658,7 +711,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         query: String = ""
     ) {
         var filteredList = vendorList
-        
+
         // Apply category filter
         if (currentFilter != "All") {
             filteredList = if (currentFilter == "Open Now") {
@@ -667,20 +720,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 filteredList.filter { it.category.contains(currentFilter, ignoreCase = true) }
             }
         }
-        
+
         // Apply search query
         if (query.isNotEmpty()) {
             filteredList = filteredList.filter { vendor ->
                 vendor.name.contains(query, ignoreCase = true) ||
-                vendor.description.contains(query, ignoreCase = true) ||
-                vendor.locality.contains(query, ignoreCase = true) ||
-                vendor.category.contains(query, ignoreCase = true) ||
-                vendor.specialties.any { specialty -> 
-                    specialty.contains(query, ignoreCase = true) 
-                }
+                        vendor.description.contains(query, ignoreCase = true) ||
+                        vendor.locality.contains(query, ignoreCase = true) ||
+                        vendor.category.contains(query, ignoreCase = true) ||
+                        vendor.specialties.any { specialty ->
+                            specialty.contains(query, ignoreCase = true)
+                        }
             }
         }
-        
+
         // Compute distance for display and sort by distance to anchor (selected place or user location)
         val baseLocation = anchorLocation ?: userLocation
         baseLocation?.let { location ->
@@ -694,9 +747,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             filteredList = filteredList.sortedBy { it.distance }
         }
-        
+
         adapter.updateList(filteredList)
-        
+
         // Add smooth transition animation
         recyclerView.animate()
             .alpha(0.7f)
@@ -711,7 +764,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun showVendorDetailsDialog(vendor: Vendor) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_vendor_details_enhanced, null)
-        
+
         // Setup dialog views
         val vendorName = dialogView.findViewById(R.id.dialogVendorName) as TextView
         val vendorCategory = dialogView.findViewById(R.id.dialogVendorCategory) as TextView
@@ -736,7 +789,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 .show()
         }
         photosRecycler.adapter = photoAdapter
-        
+
         // Populate data
         vendorName.text = vendor.name
         vendorCategory.text = vendor.category
@@ -745,10 +798,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         vendorAddress.text = vendor.address.ifEmpty { "Address not available" }
         vendorPhone.text = vendor.phoneNumber.ifEmpty { "Phone not available" }
         vendorPriceRange.text = vendor.priceRange
-        
+
         // Rating
         vendorRating.text = if (vendor.rating > 0) String.format("%.1f", vendor.rating) else "N/A"
-        
+
         // Distance
         vendorDistance.text = if (vendor.distance > 0) {
             if (vendor.distance < 1) {
@@ -757,7 +810,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 String.format("%.1f km", vendor.distance)
             }
         } else "Distance unknown"
-        
+
         // Status
         if (vendor.isOpen) {
             vendorStatus.text = "OPEN"
@@ -768,10 +821,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             vendorStatus.setTextColor(getColor(R.color.text_secondary))
             vendorStatus.setBackgroundResource(R.drawable.specialty_chip_background)
         }
-        
+
         // Specialties
         setupDialogSpecialties(dialogView, vendor.specialties)
-        
+
         // Load any predefined photos
         if (vendor.photoUrls.isNotEmpty()) {
             photosList.addAll(vendor.photoUrls)
@@ -784,7 +837,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 photoAdapter.notifyDataSetChanged()
             }
         }
-        
+
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Vendor Details")
             .setView(dialogView)
@@ -792,12 +845,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 dialog.dismiss()
             }
             .create()
-        
+
         // Setup action buttons
         val btnCall = dialogView.findViewById(R.id.btnCallVendor) as com.google.android.material.button.MaterialButton
         val btnDirections = dialogView.findViewById(R.id.btnDirections) as com.google.android.material.button.MaterialButton
         val btnAddPhoto = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnAddPhoto)
-        
+
         btnCall.setOnClickListener {
             if (vendor.phoneNumber.isNotEmpty()) {
                 val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -808,7 +861,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 Toast.makeText(this, "Phone number not available", Toast.LENGTH_SHORT).show()
             }
         }
-        
+
         btnDirections.setOnClickListener {
             try {
                 // Get current location if available
@@ -829,7 +882,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.e("VendorConnect", "Navigation error", e)
             }
         }
-        
+
         btnAddPhoto.setOnClickListener {
             // Open upload screen with minimal extras to avoid Parcelable dependency
             val intent = Intent(this, VendorDetailActivity::class.java)
@@ -840,7 +893,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             intent.putExtra("phone", vendor.phoneNumber)
             startActivity(intent)
         }
-        
+
         dialog.show()
     }
 
@@ -867,32 +920,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun toggleVendorList() {
-        if (isVendorListVisible) {
-            // Hide vendor list to show full map with animation
-            val slideOut = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_out_up)
-            slideOut.setAnimationListener(object : android.view.animation.Animation.AnimationListener {
-                override fun onAnimationStart(animation: android.view.animation.Animation?) {}
-                override fun onAnimationEnd(animation: android.view.animation.Animation?) {
-                    overlayLayout.visibility = View.GONE
-                }
-                override fun onAnimationRepeat(animation: android.view.animation.Animation?) {}
-            })
-            overlayLayout.startAnimation(slideOut)
-            
-            // Update button with smooth transition
-            btnToggleVendors.animate()
-                .rotation(180f)
-                .setDuration(300)
-                .withEndAction {
-                    btnToggleVendors.setImageResource(R.drawable.ic_list)
-                    btnToggleVendors.contentDescription = "Show Vendor List"
-                }
-        } else {
+        val isVisible = !isVendorListVisible
+        if (isVisible) {
             // Show vendor list with animation
             overlayLayout.visibility = View.VISIBLE
-            val slideIn = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_in_down)
             overlayLayout.startAnimation(slideIn)
-            
+
             // Update button with smooth transition
             btnToggleVendors.animate()
                 .rotation(0f)
@@ -901,8 +934,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     btnToggleVendors.setImageResource(R.drawable.ic_map)
                     btnToggleVendors.contentDescription = "Hide Vendor List"
                 }
+        } else {
+            // Hide vendor list to show full map with animation
+            overlayLayout.startAnimation(slideOut)
+            overlayLayout.visibility = View.GONE
+
+            // Update button with smooth transition
+            btnToggleVendors.animate()
+                .rotation(180f)
+                .setDuration(300)
+                .withEndAction {
+                    btnToggleVendors.setImageResource(R.drawable.ic_list)
+                    btnToggleVendors.contentDescription = "Show Vendor List"
+                }
         }
-        isVendorListVisible = !isVendorListVisible
+        isVendorListVisible = isVisible
     }
 
     private fun setupDialogSpecialties(dialogView: View, specialties: List<String>) {
@@ -911,10 +957,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             dialogView.findViewById(R.id.dialogSpecialty2) as TextView,
             dialogView.findViewById(R.id.dialogSpecialty3) as TextView
         )
-        
+
         // Hide all specialty views first
         specialtyViews.forEach { it.visibility = View.GONE }
-        
+
         // Show specialties up to 3
         specialties.take(3).forEachIndexed { index, specialty ->
             if (index < specialtyViews.size) {
@@ -923,7 +969,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
+
     private fun checkUserTypeAndRedirect() {
         try {
             val userId = auth.currentUser?.uid
@@ -964,7 +1010,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             setupCustomerUI() // Default to customer UI on error
         }
     }
-    
+
     private fun checkLocationPermission() {
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -977,7 +1023,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             Toast.makeText(this, "Error checking location permission: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun showLocationPermissionDialog() {
         AlertDialog.Builder(this)
             .setTitle("Location Permission")
@@ -991,7 +1037,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             .setCancelable(false)
             .show()
     }
-    
+
     /**
      * Navigate to vendor location using the most appropriate available method
      * @param vendor The vendor to navigate to
@@ -1003,35 +1049,37 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             if (currentLocation != null) {
                 val originParam = "${currentLocation.latitude},${currentLocation.longitude}"
                 val destParam = "${vendor.lat},${vendor.lng}"
-                
+
+                // Note: The daddr/saddr URL is more reliable than the navigation:q=
                 val googleMapsIntent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://www.google.com/maps/dir/?api=1&origin=$originParam&destination=$destParam&travelmode=driving")
+                    data = Uri.parse("http://maps.google.com/maps?saddr=$originParam&daddr=$destParam")
                     setPackage("com.google.android.apps.maps")
                 }
-                
+
                 if (googleMapsIntent.resolveActivity(packageManager) != null) {
                     startActivity(googleMapsIntent)
                     return
                 }
             }
-            
-            // Second try: Google Maps navigation directly to destination
+
+            // Second try: Google Maps navigation directly to destination (if no start loc)
             val mapsIntent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("google.navigation:q=${vendor.lat},${vendor.lng}")
                 setPackage("com.google.android.apps.maps")
             }
-            
+
             if (mapsIntent.resolveActivity(packageManager) != null) {
                 startActivity(mapsIntent)
                 return
             }
-            
+
             // Third try: Web browser with Google Maps
             val webIntent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${vendor.lat},${vendor.lng}&travelmode=driving")
+                val originParam = if (currentLocation != null) "&saddr=${currentLocation.latitude},${currentLocation.longitude}" else ""
+                data = Uri.parse("http://maps.google.com/maps?daddr=${vendor.lat},${vendor.lng}$originParam&travelmode=driving")
             }
             startActivity(webIntent)
-            
+
         } catch (e: Exception) {
             // Final fallback: Generic geo intent
             try {
@@ -1048,7 +1096,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
+
     private fun getCurrentLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -1057,12 +1105,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 mMap.isMyLocationEnabled = true
                 mMap.uiSettings.isMyLocationButtonEnabled = false // We have our own button
             }
-            
+
             Toast.makeText(this, "Getting your location...", Toast.LENGTH_SHORT).show()
-            
+
             // Use LocationRequest for more reliable location
             requestLocationUpdates()
-            
+
             // Immediate fallback: try getCurrentLocation with timeout
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener { location: Location? ->
@@ -1088,7 +1136,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             )
         }
     }
-    
+
     override fun onResume() {
         super.onResume()
         // Restart location updates if permission granted
@@ -1104,27 +1152,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         stopLocationUpdates()
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         stopLocationUpdates()
     }
-    
+
     private fun showNearbyVendors(latitude: Double, longitude: Double) {
         // For now, just show a toast. Later we'll implement the vendor list screen
         Toast.makeText(this, "Finding vendors near you...", Toast.LENGTH_SHORT).show()
         // TODO: Implement vendor list screen
     }
-    
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && 
+            if (grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED &&
                 (grantResults.size < 2 || grantResults[1] == PackageManager.PERMISSION_GRANTED)
             ) {
@@ -1135,7 +1183,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         // Handle location settings resolution result
@@ -1151,10 +1199,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
+
     private fun showStatsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_stats, null)
-        
+
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Stats & Dashboard")
             .setView(dialogView)
@@ -1162,41 +1210,41 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 dialog.dismiss()
             }
             .create()
-        
+
         // Set up stats data (mock data for now)
         val totalVendorsText = dialogView.findViewById<TextView>(R.id.totalVendorsText)
         val nearbyVendorsText = dialogView.findViewById<TextView>(R.id.nearbyVendorsText)
         val totalOrdersText = dialogView.findViewById<TextView>(R.id.totalOrdersText)
         val averageRatingText = dialogView.findViewById<TextView>(R.id.averageRatingText)
-        
+
         // Update with actual data
         totalVendorsText.text = "25"
         nearbyVendorsText.text = "8"
         totalOrdersText.text = "156"
         averageRatingText.text = "4.2"
-        
+
         // Set up quick action buttons
         val btnViewVendors = dialogView.findViewById<Button>(R.id.btnViewVendors)
         val btnViewOrders = dialogView.findViewById<Button>(R.id.btnViewOrders)
         val btnSettings = dialogView.findViewById<Button>(R.id.btnSettings)
-        
+
         btnViewVendors.setOnClickListener {
             dialog.dismiss()
             // Scroll to vendor list
             recyclerView.smoothScrollToPosition(0)
         }
-        
+
         btnViewOrders.setOnClickListener {
             dialog.dismiss()
             Toast.makeText(this, "Order history feature coming soon!", Toast.LENGTH_SHORT).show()
         }
-        
+
         btnSettings.setOnClickListener {
             dialog.dismiss()
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
-        
+
         dialog.show()
     }
 }

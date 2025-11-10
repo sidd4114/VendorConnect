@@ -7,15 +7,12 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
-    <!-- Main Content -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Google Map Fragment (background) -->
-        <fragment
+        <androidx.fragment.app.FragmentContainerView
             android:id="@+id/map"
-            android:name="com.google.android.gms.maps.SupportMapFragment"
             android:layout_width="0dp"
             android:layout_height="0dp"
             app:layout_constraintTop_toTopOf="parent"
@@ -23,26 +20,23 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
-        <!-- Modern gradient overlay -->
         <LinearLayout
             android:id="@+id/overlayLayout"
             android:orientation="vertical"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:background="@android:color/white"
-            android:paddingTop="8dp"
+            android:background="#80000000"
+            android:paddingTop="56dp"
             android:visibility="visible"
-            android:elevation="4dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Hamburger Menu Button -->
             <ImageButton
                 android:id="@+id/btnHamburger"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -50,60 +44,100 @@
                 android:contentDescription="Menu"
                 android:clickable="true"
                 android:focusable="true"
-                android:tint="@color/primary_black"
-                android:padding="12dp" />
+                android:elevation="8dp"
+                android:tint="@color/black" />
 
-            <!-- Modern Search Bar -->
             <EditText
                 android:id="@+id/searchBar"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
-                android:hint="Search vendors, cuisine, location..."
+                android:layout_margin="12dp"
+                android:hint="Search by vendor name..."
                 android:background="@drawable/search_background"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="16dp"
+                android:padding="16dp"
                 android:drawableStart="@drawable/ic_search"
                 android:drawablePadding="12dp"
-                android:elevation="2dp"
+                android:elevation="8dp"
                 android:textColor="@color/primary_black"
-                android:textColorHint="@color/text_tertiary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:inputType="text"
-                android:imeOptions="actionSearch"
-                android:fontFamily="sans-serif-medium"/>
+                android:imeOptions="actionSearch"/>
 
-            <!-- Locality Search Bar (Places Autocomplete) -->
-            <FrameLayout
-                android:id="@+id/placesAutocompleteContainer"
+            <androidx.fragment.app.FragmentContainerView
+                android:id="@+id/autocomplete_fragment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="12dp"
+                app:layout_constraintTop_toBottomOf="@id/searchBar"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <EditText
+                android:id="@+id/localitySearchBar"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginBottom="8dp"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginBottom="12dp"
+                android:hint="Search by locality (e.g., Andheri, Sector 10)..."
                 android:background="@drawable/search_background"
-                android:elevation="2dp">
+                android:padding="16dp"
+                android:drawableStart="@drawable/ic_location"
+                android:drawablePadding="12dp"
+                android:elevation="8dp"
+                android:textColor="@color/primary_black"
+                android:textSize="16sp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"/>
 
-                <fragment
-                    android:id="@+id/autocomplete_fragment"
-                    android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/search_background"
+                android:padding="12dp"
+                android:elevation="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Search radius (km)"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary_black"
+                    android:layout_marginBottom="8dp"/>
+
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-            <!-- Radius Search Removed -->
+                    <SeekBar
+                        android:id="@+id/radiusSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="20"
+                        android:progress="5"/>
 
-            <!-- Modern Filter Chips -->
+                    <TextView
+                        android:id="@+id/radiusValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="5 km"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary_black"
+                        android:layout_marginStart="8dp"/>
+                </LinearLayout>
+            </LinearLayout>
+
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginBottom="12dp"
-                android:scrollbars="none"
-                android:fadeScrollbars="false">
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginBottom="8dp"
+                android:scrollbars="none">
 
                 <LinearLayout
                     android:id="@+id/filterChipsContainer"
@@ -114,112 +148,87 @@
                     <TextView
                         android:id="@+id/chipAll"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="36dp"
                         android:text="All"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="@color/white"
                         android:background="@drawable/filter_chip_selected"
-                        android:paddingHorizontal="20dp"
-                        android:gravity="center_vertical|center_horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:gravity="center"
                         android:layout_marginEnd="8dp"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="sans-serif-medium" />
+                        android:focusable="true" />
 
                     <TextView
                         android:id="@+id/chipFood"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="36dp"
                         android:text="Food &amp; Beverage"
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
                         android:background="@drawable/filter_chip_unselected"
-                        android:paddingHorizontal="20dp"
-                        android:gravity="center_vertical|center_horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:gravity="center"
                         android:layout_marginEnd="8dp"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="sans-serif" />
+                        android:focusable="true" />
 
                     <TextView
                         android:id="@+id/chipCafe"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="36dp"
                         android:text="Café"
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
                         android:background="@drawable/filter_chip_unselected"
-                        android:paddingHorizontal="20dp"
-                        android:gravity="center_vertical|center_horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:gravity="center"
                         android:layout_marginEnd="8dp"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="sans-serif" />
+                        android:focusable="true" />
 
                     <TextView
                         android:id="@+id/chipHealth"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="36dp"
                         android:text="Health"
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
                         android:background="@drawable/filter_chip_unselected"
-                        android:paddingHorizontal="20dp"
-                        android:gravity="center_vertical|center_horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:gravity="center"
                         android:layout_marginEnd="8dp"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="sans-serif" />
+                        android:focusable="true" />
 
                     <TextView
                         android:id="@+id/chipOpen"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="36dp"
                         android:text="Open Now"
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
                         android:background="@drawable/filter_chip_unselected"
-                        android:paddingHorizontal="20dp"
-                        android:gravity="center_vertical|center_horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:gravity="center"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="sans-serif" />
+                        android:focusable="true" />
 
                 </LinearLayout>
 
             </HorizontalScrollView>
 
-            <!-- Vendor List -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/vendorRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="16dp"
+                android:padding="8dp"
                 android:clipToPadding="false"
-                android:scrollbars="none"
-                android:overScrollMode="never" />
-
-            <!-- Chat Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/buttonChat"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Chat with Us"
-                android:layout_marginBottom="16dp"
-                android:layout_gravity="center_horizontal"
-                app:cornerRadius="14dp"
-                app:backgroundTint="@color/accent_teal"
-                android:textColor="@color/white"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
-
+                android:scrollbars="vertical" />
         </LinearLayout>
 
-        <!-- Floating Buttons -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnMyLocation"
             android:layout_width="wrap_content"
@@ -227,11 +236,8 @@
             android:layout_margin="16dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:srcCompat="@drawable/ic_my_location"
-            app:tint="@color/white"
-            app:backgroundTint="@color/primary_black"
-            android:contentDescription="My Location"
-            app:elevation="8dp"/>
+            app:srcCompat="@drawable/ic_map"
+            android:contentDescription="My Location"/>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnToggleVendors"
@@ -241,26 +247,32 @@
             app:layout_constraintBottom_toTopOf="@+id/btnMyLocation"
             app:layout_constraintEnd_toEndOf="parent"
             app:srcCompat="@drawable/ic_list"
-            app:tint="@color/white"
             android:contentDescription="Toggle Vendor List"
-            app:backgroundTint="@color/accent_teal"
-            app:elevation="8dp"/>
+            android:backgroundTint="@color/accent_teal"/>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnStats"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            app:layout_constraintBottom_toTopOf="@+id/btnToggleVendors"
+            app:layout_constraintBottom_toTopOf="@id/btnToggleVendors"
             app:layout_constraintEnd_toEndOf="parent"
             app:srcCompat="@drawable/ic_stats"
-            app:tint="@color/white"
             android:contentDescription="Stats &amp; Dashboard"
-            app:backgroundTint="@color/accent_teal"
-            app:elevation="8dp"/>
+            android:backgroundTint="@color/accent_teal"/>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/buttonChat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:layout_constraintBottom_toTopOf="@id/btnStats"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:srcCompat="@drawable/ic_chat"
+            android:contentDescription="Chat"
+            android:backgroundTint="@color/accent_teal"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Navigation Drawer -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navigationView"
         android:layout_width="wrap_content"
