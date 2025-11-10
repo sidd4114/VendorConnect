@@ -166,17 +166,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Immediately move camera to Thane to prevent showing Google HQ
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(mumbaiLocation, 12f))
 
-        // If we don't yet have a user location, default to Thane for distance anchor
-        if (userLocation == null) {
-            val fallback = Location("")
-            fallback.latitude = 19.2183
-            fallback.longitude = 72.9781
-            userLocation = fallback
-            anchorLocation = fallback
-            if (::recyclerView.isInitialized && ::adapter.isInitialized && ::searchBar.isInitialized) {
-                filterVendors(searchBar.text.toString())
-            }
-        }
+        // Don't set default location here - wait for actual location
+        // Vendors will be generated when actual location is obtained
 
         // Add markers for vendors (if vendors are already loaded)
         if (::vendorList.isInitialized && vendorList.isNotEmpty()) {
@@ -184,15 +175,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val location = LatLng(vendor.lat, vendor.lng)
                 mMap.addMarker(MarkerOptions().position(location).title(vendor.name))
             }
-
-            // Show all vendors on the map with appropriate zoom (but don't override user location)
-            if (userLocation == null) {
-                val bounds = com.google.android.gms.maps.model.LatLngBounds.Builder()
-                for (vendor in vendorList) {
-                    bounds.include(LatLng(vendor.lat, vendor.lng))
-                }
-                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 200))
-            }
+        } else {
+            // Show message that vendors are being loaded
+            Toast.makeText(this, "Getting your location to show nearby vendors...", Toast.LENGTH_LONG).show()
         }
 
         // Enable location layer if permission is granted
@@ -338,6 +323,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updateLocation(location: Location) {
+        val previousLocation = userLocation
+        
         if (userLocation != null && location.accuracy > userLocation!!.accuracy) {
             // Don't update if new location is less accurate
             return
@@ -354,8 +341,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         userLocation = location
         anchorLocation = location
 
-        // Generate vendors near new location if not already generated
-        if (!::vendorList.isInitialized || vendorList.isEmpty()) {
+        // Generate vendors near new location if:
+        // 1. Not generated yet, OR
+        // 2. Location changed significantly (more than 500 meters)
+        val shouldRegenerateVendors = !::vendorList.isInitialized || 
+                                     vendorList.isEmpty() || 
+                                     (previousLocation != null && calculateDistance(
+                                         previousLocation.latitude, 
+                                         previousLocation.longitude,
+                                         location.latitude, 
+                                         location.longitude
+                                     ) > 0.5) // 500 meters
+
+        if (shouldRegenerateVendors) {
             vendorList = generateVendorsNearLocation(location)
             if (::adapter.isInitialized) {
                 adapter.updateList(vendorList)
@@ -376,12 +374,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         Log.d("MainActivity", "Location updated: ${location.latitude}, ${location.longitude}, accuracy: ${location.accuracy}m")
     }
 
+    // Calculate distance between two coordinates using Haversine formula
+    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val earthRadius = 6371.0 // Earth's radius in kilometers
+        val latDiff = Math.toRadians(lat2 - lat1)
+        val lngDiff = Math.toRadians(lng2 - lng1)
+        
+        val a = Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(lngDiff / 2) * Math.sin(lngDiff / 2)
+        
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return earthRadius * c
+    }
+
     private fun generateVendorsNearLocation(userLocation: Location?): List<Vendor> {
         // Default location if user location not available
         val baseLat = userLocation?.latitude ?: 19.2183
         val baseLng = userLocation?.longitude ?: 72.9781
 
-        // Generate vendors in a 2km radius around user location
+        // Generate vendors around user location
         val vendors = mutableListOf<Vendor>()
         val vendorData = listOf(
             VendorData("Local Chai Corner", "Authentic cutting chai and fresh snacks. Open 24/7!", "Food & Beverage", 4.5f, "$", true, listOf("Fresh", "24/7", "Authentic")),
@@ -398,10 +410,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         var phoneCounter = 43210
         vendorData.forEachIndexed { index, data ->
-            // Generate random offset within 2km (approximately 0.018 degrees = 2km)
-            val randomOffsetLat = (Math.random() * 0.036 - 0.018) // -0.018 to +0.018
-            val randomOffsetLng = (Math.random() * 0.036 - 0.018)
-            val distanceKm = Math.random() * 2.0 // 0 to 2km
+            // Generate random offset for vendor locations
+            val randomOffsetLat = (Math.random() * 0.01 - 0.005) // Small random offset
+            val randomOffsetLng = (Math.random() * 0.01 - 0.005)
+            val distanceKm = 0.5f // Default distance
 
             vendors.add(
                 Vendor(
@@ -414,9 +426,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     rating = data.rating,
                     priceRange = data.priceRange,
                     isOpen = data.isOpen,
-                    distance = distanceKm.toFloat(),
+                    distance = distanceKm,
                     phoneNumber = "+91 98765 ${phoneCounter++}",
-                    address = "${String.format("%.2f", distanceKm)} km away",
+                    address = "Nearby location",
                     imageUrl = "https://images.unsplash.com/photo-${1517248135467 + index}?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
                     photoUrls = listOf(
                         "https://images.unsplash.com/photo-${1517248135467 + index}?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60"
@@ -426,7 +438,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             )
         }
 
-        return vendors.sortedBy { it.distance }
+        return vendors
     }
 
     private data class VendorData(
@@ -577,8 +589,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             true
         }
 
-        // Initialize vendors - will be generated near user location
-        vendorList = generateVendorsNearLocation(userLocation)
+        // Initialize vendors - will be generated when location is available
+        vendorList = if (userLocation != null) {
+            generateVendorsNearLocation(userLocation)
+        } else {
+            emptyList() // Empty list until location is obtained
+        }
 
         // Setup RecyclerView
         recyclerView = findViewById(R.id.vendorRecyclerView)

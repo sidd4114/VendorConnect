@@ -28,9 +28,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationListener
 import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.SettingsClient
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -48,7 +52,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
-    
+
     // UI Components
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navigationView: NavigationView
@@ -66,13 +70,13 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnRefresh: ImageButton
     private lateinit var btnCloseDashboard: ImageButton
     private lateinit var btnSettings: com.google.android.material.floatingactionbutton.FloatingActionButton
-    
+
     // Location display components
     private lateinit var locationCard: CardView
     private lateinit var locationDetailsText: TextView
     private lateinit var coordinatesText: TextView
     private lateinit var dashboardCard: CardView
-    
+
     private var currentLocation: Location? = null
     private val locationPermissionRequestCode = 1001
 
@@ -83,7 +87,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Initialize Firebase
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
-        
+
         // Check if user is logged in
         if (auth.currentUser == null) {
             val intent = Intent(this, LoginActivity::class.java)
@@ -99,12 +103,12 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         initializeViews()
         setupClickListeners()
         setupNavigationDrawer()
-        
+
         // Setup Google Map
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
-        
+
         // Load vendor data
         loadVendorData()
     }
@@ -126,13 +130,13 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         btnRefresh = findViewById(R.id.btnRefresh)
         btnCloseDashboard = findViewById(R.id.btnCloseDashboard)
         btnSettings = findViewById(R.id.btnSettings)
-        
+
         // Location display components
         locationCard = findViewById(R.id.locationCard)
         locationDetailsText = findViewById(R.id.locationDetailsText)
         coordinatesText = findViewById(R.id.coordinatesText)
         dashboardCard = findViewById(R.id.dashboardCard)
-        
+
         // Set initial button text (dashboard starts hidden)
         btnToggleOverlay.text = "Show Dashboard"
     }
@@ -153,15 +157,15 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         btnToggleOverlay.setOnClickListener {
             toggleDashboard()
         }
-        
+
         btnRefresh.setOnClickListener {
             refreshDashboard()
         }
-        
+
         btnCloseDashboard.setOnClickListener {
             hideDashboardWithAnimation()
         }
-        
+
         btnSettings.setOnClickListener {
             // Open settings
             val intent = Intent(this, SettingsActivity::class.java)
@@ -184,37 +188,37 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         dashboardCard.visibility = android.view.View.VISIBLE
         vendorGreetingText.visibility = android.view.View.VISIBLE
         btnToggleOverlay.text = "Hide Dashboard"
-        
+
         // Slide down dashboard from top
         val slideDown = ObjectAnimator.ofFloat(dashboardCard, "translationY", -dashboardCard.height.toFloat(), 0f)
         val dashboardFadeIn = ObjectAnimator.ofFloat(dashboardCard, "alpha", 0f, 1f)
-        
+
         slideDown.duration = 400
         dashboardFadeIn.duration = 400
-        
+
         slideDown.interpolator = AccelerateDecelerateInterpolator()
         dashboardFadeIn.interpolator = AccelerateDecelerateInterpolator()
-        
+
         slideDown.start()
         dashboardFadeIn.start()
     }
 
     private fun hideDashboardWithAnimation() {
         btnToggleOverlay.text = "Show Dashboard"
-        
+
         // Slide up dashboard to top
         val slideUp = ObjectAnimator.ofFloat(dashboardCard, "translationY", 0f, -dashboardCard.height.toFloat())
         val dashboardFadeOut = ObjectAnimator.ofFloat(dashboardCard, "alpha", 1f, 0f)
-        
+
         slideUp.duration = 300
         dashboardFadeOut.duration = 300
-        
+
         slideUp.interpolator = AccelerateDecelerateInterpolator()
         dashboardFadeOut.interpolator = AccelerateDecelerateInterpolator()
-        
+
         slideUp.start()
         dashboardFadeOut.start()
-        
+
         // Hide after animation completes
         slideUp.addListener(object : android.animation.AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: android.animation.Animator) {
@@ -225,19 +229,19 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         })
     }
-    
+
     private fun refreshDashboard() {
         // Refresh dashboard data
         loadVendorData()
         updateLocationStatus()
         Toast.makeText(this, "Dashboard refreshed!", Toast.LENGTH_SHORT).show()
     }
-    
+
     private fun updateDashboardStats() {
         // Update business hours
         businessHoursText.text = "9:00 AM - 9:00 PM"
     }
-    
+
     private fun updateLocationStatus() {
         // Check if location is set and update status indicators
         val userId = auth.currentUser?.uid
@@ -268,7 +272,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Set vendor-specific menu
         navigationView.menu.clear()
         navigationView.inflateMenu(R.menu.drawer_menu_vendor)
-        
+
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_home -> {
@@ -312,37 +316,159 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Show loading message
         Toast.makeText(this, "Getting your current location...", Toast.LENGTH_SHORT).show()
 
-        // Use a more reliable location request
-        val locationRequest = LocationRequest.create().apply {
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+        // Check if location services are enabled and properly configured
+        checkLocationSettings { isEnabled ->
+            if (isEnabled) {
+                // Location settings are good, proceed with getting location
+                getCurrentLocation()
+            } else {
+                Toast.makeText(this, "Please enable location services and set to High Accuracy mode for best results", Toast.LENGTH_LONG).show()
+                getCurrentLocation() // Try anyway, might still work
+            }
+        }
+    }
+
+    private fun checkLocationSettings(callback: (Boolean) -> Unit) {
+        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
+        }
+
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true) // Show dialog to enable location if disabled
+
+        val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
+        val task = settingsClient.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            // All location settings are satisfied
+            callback(true)
+        }
+
+        task.addOnFailureListener { exception ->
+            // Location settings are not satisfied, but we can still try
+            callback(false)
+        }
+    }
+
+    private fun getCurrentLocation() {
+        // First try to get last known location (fastest)
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null && location.accuracy < 50) { // Only use if accuracy is reasonable (< 50 meters)
+                // We got a good location, use it
+                currentLocation = location
+
+                // Show current location on map first
+                val currentLatLng = LatLng(location.latitude, location.longitude)
+
+                // Clear existing markers and add current location marker
+                mMap.clear()
+                mMap.addMarker(
+                    MarkerOptions()
+                        .position(currentLatLng)
+                        .title("Your Current Location")
+                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                            com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
+                        ))
+                )
+
+                // Move camera to current location
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+
+                // Debug: Show the actual coordinates and accuracy
+                Toast.makeText(this@VendorMainActivity, "Location found: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)} (Accuracy: ${location.accuracy}m)", Toast.LENGTH_LONG).show()
+
+                showVendorDetailsDialog(location.latitude, location.longitude)
+            } else {
+                // No last known location or poor accuracy, request fresh location
+                requestFreshLocation()
+            }
+        }.addOnFailureListener {
+            // Failed to get last known location, request fresh location
+            requestFreshLocation()
+        }
+    }
+
+    private fun requestFreshLocation() {
+        // Use a more reliable location request with enhanced accuracy
+        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
             numUpdates = 1
             interval = 0
             fastestInterval = 0
-            maxWaitTime = 10000 // 10 seconds max wait
+            maxWaitTime = 15000 // 15 seconds max wait for better accuracy
+            smallestDisplacement = 0f // Accept any location update
         }
 
-        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationListener {
-            override fun onLocationChanged(location: Location) {
+        val locationCallback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
                 fusedLocationClient.removeLocationUpdates(this)
-                currentLocation = location
-                
-                // Debug: Show the actual coordinates
-                Toast.makeText(this@VendorMainActivity, "Location found: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}", Toast.LENGTH_LONG).show()
-                
-                showVendorDetailsDialog(location.latitude, location.longitude)
-            }
-        }, null)
+                val location = locationResult.lastLocation
 
-        // Fallback: try last known location after 3 seconds if no fresh location
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null && currentLocation == null) {
-                    currentLocation = location
-                    Toast.makeText(this, "Using last known location: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}", Toast.LENGTH_LONG).show()
-                    showVendorDetailsDialog(location.latitude, location.longitude)
+                if (location != null) {
+                    // Check if location accuracy is acceptable
+                    if (location.accuracy <= 100) { // Accept locations with accuracy <= 100 meters
+                        currentLocation = location
+
+                        // Show current location on map first
+                        val currentLatLng = LatLng(location.latitude, location.longitude)
+
+                        // Clear existing markers and add current location marker
+                        mMap.clear()
+                        mMap.addMarker(
+                            MarkerOptions()
+                                .position(currentLatLng)
+                                .title("Your Current Location")
+                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                                    com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
+                                ))
+                        )
+
+                        // Move camera to current location
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+
+                        // Debug: Show the actual coordinates and accuracy
+                        Toast.makeText(this@VendorMainActivity, "Fresh location: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)} (Accuracy: ${location.accuracy}m)", Toast.LENGTH_LONG).show()
+
+                        showVendorDetailsDialog(location.latitude, location.longitude)
+                    } else {
+                        // Poor accuracy, show warning but still use it
+                        currentLocation = location
+                        Toast.makeText(this@VendorMainActivity, "Location accuracy is poor (${location.accuracy}m). Consider moving to an area with better GPS signal.", Toast.LENGTH_LONG).show()
+
+                        // Still show on map
+                        val currentLatLng = LatLng(location.latitude, location.longitude)
+                        mMap.clear()
+                        mMap.addMarker(
+                            MarkerOptions()
+                                .position(currentLatLng)
+                                .title("Your Current Location (Poor Accuracy)")
+                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                                    com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
+                                ))
+                        )
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+
+                        showVendorDetailsDialog(location.latitude, location.longitude)
+                    }
+                } else {
+                    Toast.makeText(this@VendorMainActivity, "Unable to get current location", Toast.LENGTH_LONG).show()
                 }
             }
-        }, 3000)
+        }
+
+        // Request location updates
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
+
+            // Timeout after 15 seconds to match maxWaitTime
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            if (currentLocation == null) {
+                Toast.makeText(this, "Location request timed out. Please try again.", Toast.LENGTH_LONG).show()
+            }
+        }, 15000)
+        }
     }
 
     private fun showManualLocationDialog() {
@@ -379,17 +505,17 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                 // Show loading
                 btnSearch.text = "Searching..."
                 btnSearch.isEnabled = false
-                
+
                 searchPlaces(query) { results ->
                     runOnUiThread {
                         searchResults.clear()
                         searchResults.addAll(results)
                         adapter.notifyDataSetChanged()
-                        
+
                         // Reset button
                         btnSearch.text = "Search"
                         btnSearch.isEnabled = true
-                        
+
                         if (results.isEmpty()) {
                             Toast.makeText(this, "No results found for '$query'", Toast.LENGTH_SHORT).show()
                         }
@@ -403,12 +529,12 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         btnUseCoordinates.setOnClickListener {
             val latText = editTextLatitude.text.toString().trim()
             val lngText = editTextLongitude.text.toString().trim()
-            
+
             if (latText.isNotEmpty() && lngText.isNotEmpty()) {
                 try {
                     val latitude = latText.toDouble()
                     val longitude = lngText.toDouble()
-                    
+
                     if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
                         dialog.dismiss()
                         showVendorDetailsDialog(latitude, longitude)
@@ -433,21 +559,21 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val apiKey = "AIzaSyBOBqbUU_WbGeKix-WnuJcmsydHUfUkWwY"
                 val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
                 val url = "https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$apiKey"
-                
+
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connect()
-                
+
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val jsonResponse = JSONObject(response)
-                
+
                 val results = mutableListOf<PlaceSearchResult>()
                 val status = jsonResponse.getString("status")
-                
+
                 runOnUiThread {
                     Toast.makeText(this, "Search status: $status", Toast.LENGTH_SHORT).show()
                 }
-                
+
                 if (status == "OK") {
                     val places = jsonResponse.getJSONArray("results")
                     for (i in 0 until minOf(places.length(), 5)) { // Limit to 5 results
@@ -457,10 +583,10 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                         val location = place.getJSONObject("geometry").getJSONObject("location")
                         val lat = location.getDouble("lat")
                         val lng = location.getDouble("lng")
-                        
+
                         results.add(PlaceSearchResult(name, address, lat, lng))
                     }
-                    
+
                     runOnUiThread {
                         Toast.makeText(this, "Found ${results.size} results", Toast.LENGTH_SHORT).show()
                     }
@@ -472,7 +598,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                     // Fallback to sample results
                     results.addAll(getSampleSearchResults(query))
                 }
-                
+
                 callback(results)
             } catch (e: Exception) {
                 runOnUiThread {
@@ -492,11 +618,11 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
             PlaceSearchResult("Big Ben", "Westminster, London SW1A 0AA, UK", 51.4994, -0.1245),
             PlaceSearchResult("Sydney Opera House", "Bennelong Point, Sydney NSW 2000, Australia", -33.8568, 151.2153)
         )
-        
+
         // Filter sample results based on query
-        return sampleResults.filter { 
-            it.name.contains(query, ignoreCase = true) || 
-            it.address.contains(query, ignoreCase = true) 
+        return sampleResults.filter {
+            it.name.contains(query, ignoreCase = true) ||
+            it.address.contains(query, ignoreCase = true)
         }.take(3)
     }
 
@@ -543,14 +669,14 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                 "isLocationSet" to true,
                 "lastUpdated" to System.currentTimeMillis()
             )
-            
+
             // Update UI IMMEDIATELY before saving to database
             updateMapLocation(latitude, longitude)
             updateLocationDisplay(stallName, stallType, latitude, longitude)
             locationStatusText.text = "Location pinned successfully!"
             btnPinLocation.text = "Update Location"
             locationCard.visibility = android.view.View.VISIBLE
-            
+
             // Then save to database
             db.collection("users").document(userId).update(locationData)
                 .addOnSuccessListener {
@@ -564,16 +690,16 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun updateMapLocation(latitude: Double, longitude: Double) {
         val location = LatLng(latitude, longitude)
-        
+
         // Clear existing markers
         mMap.clear()
-        
+
         // Add new marker
         mMap.addMarker(MarkerOptions().position(location).title("Your Location"))
-        
+
         // Move camera to location with animation
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
-        
+
         // Debug: Show coordinates
         Toast.makeText(this, "Map updated to: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}", Toast.LENGTH_SHORT).show()
     }
@@ -582,7 +708,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
         locationCard.visibility = android.view.View.VISIBLE
         locationDetailsText.text = "$stallName • $stallType"
         coordinatesText.text = "Coordinates: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}"
-        
+
         // Debug: Show coordinates in toast for verification (only if coordinates seem wrong)
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
             Toast.makeText(this, "Invalid coordinates: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}", Toast.LENGTH_LONG).show()
@@ -601,7 +727,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
                             val stallType = document.getString("stallType") ?: "Unknown Type"
                             val latitude = document.getDouble("latitude") ?: 0.0
                             val longitude = document.getDouble("longitude") ?: 0.0
-                            
+
                             if (latitude != 0.0 && longitude != 0.0) {
                                 updateLocationDisplay(stallName, stallType, latitude, longitude)
                                 updateMapLocation(latitude, longitude)
@@ -620,7 +746,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun loadVendorData() {
         // Show vendor greeting
         vendorGreetingText.visibility = android.view.View.VISIBLE
-        
+
         // Load vendor name and existing location
         loadVendorName()
         loadExistingLocation()
@@ -658,17 +784,49 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-        
-        // Enable location button
+
+        // Enable location button and show current location
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             mMap.isMyLocationEnabled = true
+
+            // Get current location and show it on map
+            getCurrentLocationAndShowOnMap()
         }
-        
+
         // Load existing vendor location if available
         loadExistingLocation()
-        
+
         // Debug: Show map ready message
         Toast.makeText(this, "Map is ready!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun getCurrentLocationAndShowOnMap() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    val currentLatLng = LatLng(location.latitude, location.longitude)
+
+                    // Move camera to current location
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+
+                    // Add a marker for current location
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(currentLatLng)
+                            .title("Your Current Location")
+                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_BLUE
+                            ))
+                    )
+
+                    Toast.makeText(this, "Current location found!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Unable to get current location", Toast.LENGTH_SHORT).show()
+                }
+            }.addOnFailureListener {
+                Toast.makeText(this, "Failed to get current location", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
