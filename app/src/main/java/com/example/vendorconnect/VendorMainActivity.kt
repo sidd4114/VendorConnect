@@ -16,11 +16,15 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.location.LocationManager
+import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.gms.common.api.ResolvableApiException
+import android.util.Log
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONObject
@@ -29,12 +33,14 @@ import java.net.URL
 import java.util.concurrent.Executors
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationListener
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.LocationSettingsResponse
+import com.google.android.gms.location.Priority
 import com.google.android.gms.location.SettingsClient
+import com.google.android.gms.tasks.Task
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -49,6 +55,9 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationRequest: LocationRequest
+    private var locationCallback: LocationCallback? = null
+    private var isRequestingLocationUpdates = false
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
@@ -79,6 +88,7 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var currentLocation: Location? = null
     private val locationPermissionRequestCode = 1001
+    private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,6 +121,155 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Load vendor data
         loadVendorData()
+    }
+
+    private fun enableMyLocation() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            mMap.isMyLocationEnabled = true
+
+            // Check if GPS is enabled
+            val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+            val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+            if (!isGpsEnabled && !isNetworkEnabled) {
+                // Show dialog to enable location services
+                AlertDialog.Builder(this)
+                    .setTitle("Location Services Disabled")
+                    .setMessage("Please enable location services (GPS and network) to show your current location.")
+                    .setPositiveButton("Settings") { _, _ ->
+                        val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("Cancel") { _, _ ->
+                        // Load existing location as fallback
+                        loadExistingLocation()
+                    }
+                    .show()
+                return
+            }
+
+            // Request location with proper configuration
+            requestLocationUpdates()
+
+            // Also try to get last known location immediately as fallback
+            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                if (lastLoc != null) {
+                    // Use last known location if we don't have a fresh one
+                    updateMapLocation(lastLoc)
+                }
+            }
+        } else {
+            // Request both fine and coarse location permissions
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+        }
+    }
+
+    private fun requestLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        // Stop any existing updates
+        stopLocationUpdates()
+
+        // Create location request with high accuracy for immediate location
+        locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+            .setMinUpdateIntervalMillis(2000)
+            .setMaxUpdateDelayMillis(5000)
+            .setWaitForAccurateLocation(true)
+            .build()
+
+        // Create location callback
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    updateMapLocation(location)
+                    // Stop updates after getting first accurate location
+                    stopLocationUpdates()
+                }
+            }
+        }
+
+        // Check location settings
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
+        val task = settingsClient.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            // Location settings are satisfied, request location updates
+            isRequestingLocationUpdates = true
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback!!,
+                mainLooper
+            )
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                // Location settings are not satisfied, show dialog to user
+                try {
+                    exception.startResolutionForResult(this, LOCATION_PERMISSION_REQUEST_CODE + 1)
+                } catch (e: Exception) {
+                    Log.e("VendorMainActivity", "Error showing location settings dialog", e)
+                }
+            }
+            // Fallback to last known location
+            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                lastLoc?.let { updateMapLocation(it) }
+            }
+        }
+
+        // Fallback timeout: if no location received in 10 seconds, use last known location or existing
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            stopLocationUpdates()
+            // If still no location, load existing location as final fallback
+            loadExistingLocation()
+        }, 10000)
+    }
+
+    private fun stopLocationUpdates() {
+        if (isRequestingLocationUpdates && locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback!!)
+            isRequestingLocationUpdates = false
+        }
+    }
+
+    private fun updateMapLocation(location: Location) {
+        val currentLocation = LatLng(location.latitude, location.longitude)
+        
+        // Animate camera to current location with good zoom level
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+        
+        // Update location status - use placeholder values for stall info
+        updateLocationDisplay("Current Location", "Live GPS", location.latitude, location.longitude)
     }
 
     private fun initializeViews() {
@@ -313,161 +472,52 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
             return
         }
 
-        // Show loading message
-        Toast.makeText(this, "Getting your current location...", Toast.LENGTH_SHORT).show()
+        // Check if we already have a current location from real-time updates
+        if (currentLocation != null) {
+            // Use the already available current location
+            Toast.makeText(this, "Using your current location...", Toast.LENGTH_SHORT).show()
+            
+            // Debug: Show the actual coordinates
+            Toast.makeText(this, "Location: ${String.format("%.6f", currentLocation!!.latitude)}, ${String.format("%.6f", currentLocation!!.longitude)}", Toast.LENGTH_LONG).show()
+            
+            showVendorDetailsDialog(currentLocation!!.latitude, currentLocation!!.longitude)
+        } else {
+            // Fallback: Request fresh location if we don't have current location
+            Toast.makeText(this, "Getting your current location...", Toast.LENGTH_SHORT).show()
 
-        // Check if location services are enabled and properly configured
-        checkLocationSettings { isEnabled ->
-            if (isEnabled) {
-                // Location settings are good, proceed with getting location
-                getCurrentLocation()
-            } else {
-                Toast.makeText(this, "Please enable location services and set to High Accuracy mode for best results", Toast.LENGTH_LONG).show()
-                getCurrentLocation() // Try anyway, might still work
+            // Use a more reliable location request
+            val locationRequest = LocationRequest.create().apply {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                numUpdates = 1
+                interval = 0
+                fastestInterval = 0
+                maxWaitTime = 10000 // 10 seconds max wait
             }
-        }
-    }
 
-    private fun checkLocationSettings(callback: (Boolean) -> Unit) {
-        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
-            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
-
-        val builder = LocationSettingsRequest.Builder()
-            .addLocationRequest(locationRequest)
-            .setAlwaysShow(true) // Show dialog to enable location if disabled
-
-        val settingsClient: SettingsClient = LocationServices.getSettingsClient(this)
-        val task = settingsClient.checkLocationSettings(builder.build())
-
-        task.addOnSuccessListener {
-            // All location settings are satisfied
-            callback(true)
-        }
-
-        task.addOnFailureListener { exception ->
-            // Location settings are not satisfied, but we can still try
-            callback(false)
-        }
-    }
-
-    private fun getCurrentLocation() {
-        // First try to get last known location (fastest)
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null && location.accuracy < 50) { // Only use if accuracy is reasonable (< 50 meters)
-                // We got a good location, use it
-                currentLocation = location
-
-                // Show current location on map first
-                val currentLatLng = LatLng(location.latitude, location.longitude)
-
-                // Clear existing markers and add current location marker
-                mMap.clear()
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(currentLatLng)
-                        .title("Your Current Location")
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                            com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
-                        ))
-                )
-
-                // Move camera to current location
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
-
-                // Debug: Show the actual coordinates and accuracy
-                Toast.makeText(this@VendorMainActivity, "Location found: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)} (Accuracy: ${location.accuracy}m)", Toast.LENGTH_LONG).show()
-
-                showVendorDetailsDialog(location.latitude, location.longitude)
-            } else {
-                // No last known location or poor accuracy, request fresh location
-                requestFreshLocation()
-            }
-        }.addOnFailureListener {
-            // Failed to get last known location, request fresh location
-            requestFreshLocation()
-        }
-    }
-
-    private fun requestFreshLocation() {
-        // Use a more reliable location request with enhanced accuracy
-        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
-            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-            numUpdates = 1
-            interval = 0
-            fastestInterval = 0
-            maxWaitTime = 15000 // 15 seconds max wait for better accuracy
-            smallestDisplacement = 0f // Accept any location update
-        }
-
-        val locationCallback = object : com.google.android.gms.location.LocationCallback() {
-            override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
-                fusedLocationClient.removeLocationUpdates(this)
-                val location = locationResult.lastLocation
-
-                if (location != null) {
-                    // Check if location accuracy is acceptable
-                    if (location.accuracy <= 100) { // Accept locations with accuracy <= 100 meters
+            fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
+                override fun onLocationResult(locationResult: LocationResult) {
+                    locationResult.lastLocation?.let { location ->
+                        fusedLocationClient.removeLocationUpdates(this)
                         currentLocation = location
-
-                        // Show current location on map first
-                        val currentLatLng = LatLng(location.latitude, location.longitude)
-
-                        // Clear existing markers and add current location marker
-                        mMap.clear()
-                        mMap.addMarker(
-                            MarkerOptions()
-                                .position(currentLatLng)
-                                .title("Your Current Location")
-                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                                    com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
-                                ))
-                        )
-
-                        // Move camera to current location
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
-
-                        // Debug: Show the actual coordinates and accuracy
-                        Toast.makeText(this@VendorMainActivity, "Fresh location: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)} (Accuracy: ${location.accuracy}m)", Toast.LENGTH_LONG).show()
-
-                        showVendorDetailsDialog(location.latitude, location.longitude)
-                    } else {
-                        // Poor accuracy, show warning but still use it
-                        currentLocation = location
-                        Toast.makeText(this@VendorMainActivity, "Location accuracy is poor (${location.accuracy}m). Consider moving to an area with better GPS signal.", Toast.LENGTH_LONG).show()
-
-                        // Still show on map
-                        val currentLatLng = LatLng(location.latitude, location.longitude)
-                        mMap.clear()
-                        mMap.addMarker(
-                            MarkerOptions()
-                                .position(currentLatLng)
-                                .title("Your Current Location (Poor Accuracy)")
-                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                                    com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
-                                ))
-                        )
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
-
+                        
+                        // Debug: Show the actual coordinates
+                        Toast.makeText(this@VendorMainActivity, "Location found: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}", Toast.LENGTH_LONG).show()
+                        
                         showVendorDetailsDialog(location.latitude, location.longitude)
                     }
-                } else {
-                    Toast.makeText(this@VendorMainActivity, "Unable to get current location", Toast.LENGTH_LONG).show()
                 }
-            }
-        }
+            }, mainLooper)
 
-        // Request location updates
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-
-            // Timeout after 15 seconds to match maxWaitTime
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            fusedLocationClient.removeLocationUpdates(locationCallback)
-            if (currentLocation == null) {
-                Toast.makeText(this, "Location request timed out. Please try again.", Toast.LENGTH_LONG).show()
-            }
-        }, 15000)
+            // Fallback: try last known location after 3 seconds if no fresh location
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null && currentLocation == null) {
+                        currentLocation = location
+                        Toast.makeText(this, "Using last known location: ${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}", Toast.LENGTH_LONG).show()
+                        showVendorDetailsDialog(location.latitude, location.longitude)
+                    }
+                }
+            }, 3000)
         }
     }
 
@@ -785,64 +835,59 @@ class VendorMainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Enable location button and show current location
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.isMyLocationEnabled = true
+        // Ensure the map starts focused and avoids world view flicker
+        mMap.setMinZoomPreference(10f)
+        mMap.setMaxZoomPreference(20f)
 
-            // Get current location and show it on map
-            getCurrentLocationAndShowOnMap()
+        // Completely prevent Google HQ from showing by setting map options
+        try {
+            mMap.setMapStyle(
+                com.google.android.gms.maps.model.MapStyleOptions.loadRawResourceStyle(
+                    this, R.raw.map_style
+                )
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("VendorMainActivity", "Can't find style. Error: ", e)
         }
 
-        // Load existing vendor location if available
-        loadExistingLocation()
+        // Configure map UI settings
+        mMap.uiSettings.isMapToolbarEnabled = false
+        mMap.uiSettings.isZoomControlsEnabled = true
+        mMap.uiSettings.isCompassEnabled = true
+        mMap.uiSettings.isMyLocationButtonEnabled = false // We use custom FAB
 
-        // Debug: Show map ready message
-        Toast.makeText(this, "Map is ready!", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun getCurrentLocationAndShowOnMap() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    val currentLatLng = LatLng(location.latitude, location.longitude)
-
-                    // Move camera to current location
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
-
-                    // Add a marker for current location
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(currentLatLng)
-                            .title("Your Current Location")
-                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_BLUE
-                            ))
-                    )
-
-                    Toast.makeText(this, "Current location found!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "Unable to get current location", Toast.LENGTH_SHORT).show()
-                }
-            }.addOnFailureListener {
-                Toast.makeText(this, "Failed to get current location", Toast.LENGTH_SHORT).show()
-            }
-        }
+        // Enable location layer and immediately request current location
+        enableMyLocation()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == locationPermissionRequestCode) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                pinCurrentLocation()
-            } else {
-                Toast.makeText(this, "Location permission is required to pin your location", Toast.LENGTH_LONG).show()
+        when (requestCode) {
+            locationPermissionRequestCode -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    pinCurrentLocation()
+                } else {
+                    Toast.makeText(this, "Location permission is required to pin your location", Toast.LENGTH_LONG).show()
+                }
+            }
+            LOCATION_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    enableMyLocation()
+                } else {
+                    Toast.makeText(this, "Location permission is required to show your current location", Toast.LENGTH_LONG).show()
+                    // Load existing location as fallback
+                    loadExistingLocation()
+                }
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Refresh location data when returning to the activity
-        loadExistingLocation()
+        // Only refresh location data if we don't have a current location
+        // This prevents overriding newly set locations after dialog closes
+        if (currentLocation == null) {
+            loadExistingLocation()
+        }
     }
 }

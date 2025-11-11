@@ -48,11 +48,11 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+// Google Places imports for location search
 import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.widget.AutocompleteSupportFragment
-import com.google.android.libraries.places.widget.listener.PlaceSelectionListener
-// You may need this import if it's not already there
-import com.google.android.gms.common.api.Status
+import com.google.android.libraries.places.widget.Autocomplete
+import com.google.android.libraries.places.widget.AutocompleteActivity
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
+        private const val AUTOCOMPLETE_REQUEST_CODE = 1002
     }
 
     // Filter chips
@@ -76,15 +77,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var chipOpen: TextView
     private var currentFilter = "All"
 
-    // Search components (locality via Places Autocomplete)
-
     // User's current location
     private var userLocation: Location? = null
-    // Anchor for distance sorting (selected place or user location)
-    private var anchorLocation: Location? = null
 
     // Search filters
-    private var currentLocality: String = ""
     private var selectedCategories: MutableSet<String> = mutableSetOf()
     private var showOnlyOpen: Boolean = false
 
@@ -339,7 +335,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         userLocation = location
-        anchorLocation = location
 
         // Generate vendors near new location if:
         // 1. Not generated yet, OR
@@ -355,17 +350,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         if (shouldRegenerateVendors) {
             vendorList = generateVendorsNearLocation(location)
-            if (::adapter.isInitialized) {
-                adapter.updateList(vendorList)
-            }
-            // Add markers to map
-            if (this::mMap.isInitialized) {
-                mMap.clear() // Clear old markers
-                for (vendor in vendorList) {
-                    val vendorLocation = LatLng(vendor.lat, vendor.lng)
-                    mMap.addMarker(MarkerOptions().position(vendorLocation).title(vendor.name))
-                }
-            }
+            // Note: Real vendors are loaded asynchronously in loadRealVendorsFromFirebase
+            // and will be added to the list and UI automatically
         }
 
         val query = if (::searchBar.isInitialized) searchBar.text.toString() else ""
@@ -395,6 +381,106 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Generate vendors around user location
         val vendors = mutableListOf<Vendor>()
+        
+        // First, load real vendors from Firebase
+        loadRealVendorsFromFirebase(vendors, userLocation)
+        
+        // Then add dummy vendors if needed (only if we don't have enough real vendors)
+        if (vendors.size < 5) {
+            addDummyVendors(vendors, baseLat, baseLng, userLocation)
+        }
+
+        return vendors
+    }
+
+    private fun loadRealVendorsFromFirebase(vendors: MutableList<Vendor>, userLocation: Location?) {
+        // Load real vendors from Firestore
+        db.collection("users")
+            .whereEqualTo("isLocationSet", true)
+            .get()
+            .addOnSuccessListener { documents ->
+                val realVendors = mutableListOf<Vendor>()
+                
+                for (document in documents) {
+                    val latitude = document.getDouble("latitude") ?: continue
+                    val longitude = document.getDouble("longitude") ?: continue
+                    val stallName = document.getString("stallName") ?: "Unknown Stall"
+                    val stallType = document.getString("stallType") ?: "Unknown Type"
+                    
+                    // Only include vendors near the customer (within 5km)
+                    if (userLocation != null) {
+                        val distance = calculateDistance(
+                            userLocation.latitude, userLocation.longitude,
+                            latitude, longitude
+                        )
+                        if (distance > 5.0) { // Skip if more than 5km away
+                            continue
+                        }
+                    }
+                    
+                    val distanceKm = if (userLocation != null) {
+                        calculateDistance(
+                            userLocation.latitude, userLocation.longitude,
+                            latitude, longitude
+                        ).toFloat()
+                    } else 1.0f
+                    
+                    realVendors.add(
+                        Vendor(
+                            name = stallName,
+                            description = "Real vendor location from Firebase",
+                            lat = latitude,
+                            lng = longitude,
+                            locality = "Real Location",
+                            category = stallType,
+                            rating = 4.0f + (Math.random() * 1.0f).toFloat(), // Random rating 4.0-5.0
+                            priceRange = "$",
+                            isOpen = Math.random() > 0.3, // 70% chance of being open
+                            distance = distanceKm,
+                            phoneNumber = "+91 98765 ${40000 + (Math.random() * 10000).toInt()}",
+                            address = "Real vendor location",
+                            imageUrl = "https://images.unsplash.com/photo-${1517248135467 + vendors.size}?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
+                            photoUrls = listOf(
+                                "https://images.unsplash.com/photo-${1517248135467 + vendors.size}?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60"
+                            ),
+                            specialties = listOf("Real", "Authentic", "Local")
+                        )
+                    )
+                }
+                
+                // Add real vendors to the main list
+                vendors.addAll(realVendors)
+                
+                // Update the UI with combined vendors
+                vendorList = vendors
+                if (::adapter.isInitialized) {
+                    adapter.updateList(vendorList)
+                }
+                
+                // Add markers to map
+                if (this::mMap.isInitialized && vendorList.isNotEmpty()) {
+                    mMap.clear() // Clear old markers
+                    for (vendor in vendorList) {
+                        val vendorLocation = LatLng(vendor.lat, vendor.lng)
+                        val markerOptions = MarkerOptions()
+                            .position(vendorLocation)
+                            .title(vendor.name)
+                        
+                        // Add special marker for real vendors
+                        if (vendor.locality == "Real Location") {
+                            markerOptions.snippet("Real Vendor")
+                        }
+                        
+                        mMap.addMarker(markerOptions)
+                    }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("MainActivity", "Error loading real vendors: ${e.message}")
+            }
+    }
+
+    private fun addDummyVendors(vendors: MutableList<Vendor>, baseLat: Double, baseLng: Double, userLocation: Location?) {
         val vendorData = listOf(
             VendorData("Local Chai Corner", "Authentic cutting chai and fresh snacks. Open 24/7!", "Food & Beverage", 4.5f, "$", true, listOf("Fresh", "24/7", "Authentic")),
             VendorData("Fresh Sandwich Hub", "Custom sandwiches made with fresh ingredients. Perfect for breakfast!", "Food & Beverage", 4.2f, "$$", true, listOf("Fresh", "Custom", "Healthy")),
@@ -413,7 +499,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             // Generate random offset for vendor locations
             val randomOffsetLat = (Math.random() * 0.01 - 0.005) // Small random offset
             val randomOffsetLng = (Math.random() * 0.01 - 0.005)
-            val distanceKm = 0.5f // Default distance
+            val distanceKm = if (userLocation != null) {
+                calculateDistance(
+                    userLocation.latitude, userLocation.longitude,
+                    baseLat + randomOffsetLat, baseLng + randomOffsetLng
+                ).toFloat()
+            } else 0.5f
 
             vendors.add(
                 Vendor(
@@ -437,8 +528,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 )
             )
         }
-
-        return vendors
     }
 
     private data class VendorData(
@@ -480,45 +569,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val fragmentManager = supportFragmentManager
 
-        // Setup Google Places Autocomplete (embedded fragment in layout)
-        var autocompleteFragment = fragmentManager
-            .findFragmentById(R.id.autocomplete_fragment) as? AutocompleteSupportFragment
-
-        // If fragment is null (first launch), create it. Otherwise, use restored one.
-        if (autocompleteFragment == null) {
-            autocompleteFragment = AutocompleteSupportFragment.newInstance()
-            fragmentManager.beginTransaction()
-                .add(R.id.autocomplete_fragment, autocompleteFragment)
-                .commit()
-            // We must execute transactions so we can configure the fragment right away
-            fragmentManager.executePendingTransactions()
-        }
-
-        // Now, safely configure the fragment
-        autocompleteFragment?.setPlaceFields(
-            listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG)
-        )
-        autocompleteFragment?.setOnPlaceSelectedListener(object : PlaceSelectionListener {
-            override fun onPlaceSelected(place: Place) {
-                currentLocality = place.name ?: place.address ?: ""
-                place.latLng?.let { latLng ->
-                    // Update anchor to selected place
-                    anchorLocation = Location("").apply {
-                        latitude = latLng.latitude
-                        longitude = latLng.longitude
-                    }
-                    if (this@MainActivity::mMap.isInitialized) {
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
-                    } else {
-                        pendingCameraLatLng = latLng
-                    }
-                }
-                applyFilters()
-            }
-            override fun onError(status: Status) {
-                Toast.makeText(this@MainActivity, "Place error: ${status.statusMessage}", Toast.LENGTH_SHORT).show()
-            }
-        })
+        // Location search functionality removed - only vendor name search remains
 
         // --- END OF FIRST MODIFIED SECTION ---
 
@@ -613,6 +664,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        // Setup Location Search click listener
+        val locationSearchArea = findViewById<LinearLayout>(R.id.locationSearchArea)
+        locationSearchArea?.setOnClickListener {
+            // Launch Google Places autocomplete
+            val fields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG)
+            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
+                .build(this)
+            startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE)
+        }
 
         // Add focus animation to search bar
         searchBar.setOnFocusChangeListener { _, hasFocus ->
@@ -750,9 +811,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        // Compute distance for display and sort by distance to anchor (selected place or user location)
-        val baseLocation = anchorLocation ?: userLocation
-        baseLocation?.let { location ->
+        // Compute distance for display and sort by distance to user location
+        userLocation?.let { location ->
             filteredList.forEach { vendor ->
                 val vendorLocation = Location("").apply {
                     latitude = vendor.lat
@@ -1202,6 +1262,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        
+        // Handle Google Places autocomplete result
+        if (requestCode == AUTOCOMPLETE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK) {
+                val place = Autocomplete.getPlaceFromIntent(data!!)
+                place.latLng?.let { latLng ->
+                    // Move camera to selected location
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                    Toast.makeText(this, "Location: ${place.name}", Toast.LENGTH_SHORT).show()
+                }
+            } else if (resultCode == AutocompleteActivity.RESULT_ERROR) {
+                val status = Autocomplete.getStatusFromIntent(data!!)
+                Toast.makeText(this, "Error: ${status.statusMessage}", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        
         // Handle location settings resolution result
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE + 1) {
             if (resultCode == RESULT_OK) {
